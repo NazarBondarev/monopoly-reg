@@ -39,14 +39,12 @@ class Keyboards:
 
     def get_user_games(self, userid):
         dates = self.db.get_user_history(userid)
-        print(dates)
         if dates:
             keyb = InlineKeyboardMarkup(row_width=2)
             i = 0
             for item in dates:
                 i+=1
                 t = parse(item, settings={'DATE_ORDER': 'DMY'})
-                print(datetime.now() < t)
                 if datetime.now() > t:
                     keyb.add(InlineKeyboardButton(text=f"✅{item}", callback_data=f"✅{item}"))
                 elif datetime.now() < t:

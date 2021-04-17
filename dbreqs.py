@@ -14,10 +14,8 @@ class Database:
         result = self.cursor.fetchall()
         if result:
             dates = [x[1] for x in result]
-            print(dates)
             temp = []
             for item in dates:
-                print(item)
                 if item in ("history"):
                     continue
                 request = f"select * from `{item}`"
@@ -41,11 +39,18 @@ class Database:
         result = self.cursor.fetchall()
         
         result = [x[0] for x in result]
-        print(result)
         if userid in result:
             return False
         else:
             return True
+    
+    def get_users_id(self, gamedate):
+        request = f"select `userid` from `{gamedate}`"
+        self.cursor.execute(request)
+        result = self.cursor.fetchall()
+        
+        result = [x[0] for x in result]
+        return result
 
     def add_new_user(self, userid, name, date, gamedate):
         request = f"INSERT INTO `{gamedate}`(name, userid, date) VALUES('{name}',{userid},'{date}')"
@@ -61,7 +66,6 @@ class Database:
         request = f"select gamedate from `history` where userid={userid}"
         self.cursor.execute(request)
         result = self.cursor.fetchall()
-        print([x[0] for x in result])
         if result:
             return [x[0] for x in result]
         else:
@@ -71,9 +75,14 @@ class Database:
         request = f"select name from `{gamedate}`"
         self.cursor.execute(request)
         result = self.cursor.fetchall()
-        print([x[0] for x in result])
         if result:
             return [x[0] for x in result]
         else:
             return False
 
+    def delete_reserve(self, gamedate, userid):
+        request = f"delete from `{gamedate}` where userid={userid}"
+        request2 = f"delete from `history` where userid={userid} and gamedate='{gamedate}'"
+        self.cursor.execute(request)
+        self.cursor.execute(request2)
+        self.conn.commit()
