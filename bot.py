@@ -1,6 +1,6 @@
 from aiogram import executor, exceptions, Dispatcher, Bot, types
 import asyncio
-from config import API_TOKEN
+from config import API_TOKEN, ADMINS
 from keyboards import general_menu, Keyboards
 from pprint import pprint
 import aioschedule
@@ -16,10 +16,104 @@ dates = Database().get_tables()
 
 @dp.message_handler(commands = 'start')
 async def start(message: types.Message):
-    await message.answer(f"✋Здравствуйте, <b>{message.from_user.first_name}!</b>\n"
-                         f"🤖Я бот для регистрации в игре <b>«Монополия»</b>\n\n"
-                         f"⬇️Воспользуйтесь меню ниже для того что бы продолжить", reply_markup=general_menu)
+    user_status = Database().get_users_number(message.from_user.id)
+    if not user_status:
+        
+        keyb1 = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        button = types.KeyboardButton(text="Отправить контакт", request_contact=True)
+        keyb1.add(button)
+        await message.answer("Для начала отправьте мне Ваш номер телефона", reply_markup=keyb1)
+    else:
+        await message.answer(f"✋Здравствуйте, <b>{message.from_user.first_name}!</b>\n"
+                            f"🤖Я бот для регистрации в игре <b>«Монополия»</b>\n\n"
+                            f"⬇️Воспользуйтесь меню ниже для того что бы продолжить", reply_markup=general_menu)
 
+
+@dp.message_handler(content_types = 'contact')
+async def get_contact(message: types.Message):
+    Database().add_new_user_to_users(message.from_user.id, message.from_user.first_name, message.contact.phone_number)
+    await message.answer(f"✋Здравствуйте, <b>{message.from_user.first_name}!</b>\n"
+                            f"🤖Я бот для регистрации в игре <b>«Монополия»</b>\n\n"
+                            f"⬇️Воспользуйтесь меню ниже для того что бы продолжить", reply_markup=general_menu)
+
+
+@dp.message_handler(commands = ['m'])
+async def malling(message: types.Message):
+    keyb = types.InlineKeyboardMarkup()
+
+    verify_btn = types.InlineKeyboardButton(text="Подтвердить", callback_data="verify_malling")
+    decline_btn = types.InlineKeyboardButton(text="Отменить", callback_data="decline_malling")
+    keyb.add(verify_btn, decline_btn)
+
+    await message.answer(f"Вы хотите отправить всем <b>{message.text.replace('/m ', '')}</b>", reply_markup=keyb)
+
+
+@dp.callback_query_handler(lambda call: call.data in ("verify_malling", "decline_malling"))
+async def decline_or_verify_malling(call: types.CallbackQuery):
+
+    if call.data == "verify_malling":
+        text = call.message.text.replace("Вы хотите отправить всем ", "")
+        for item in Database().get_all_users_id():
+            await bot.send_message(item, text)
+    elif call.data == "decline_malling":
+        await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+
+
+
+
+
+@dp.message_handler(commands = ['view'])
+async def get_one_date_info(message: types.Message):
+    if message.from_user.id in ADMINS:
+        gamedate = f"{message.text.replace('/view ', '')}"
+        result = Database().get_all_users_info_one_date(gamedate)
+        if result:
+            with open(f"{gamedate[0:8]}.csv", "rb") as date_info:
+                await message.answer_document(date_info)
+        elif not result:
+            await message.answer("Такая дата не найдена :(")
+        
+
+
+
+@dp.message_handler(commands = ['add','del'])
+async def add_new_date(message: types.Message):
+    if message.text.startswith('/add'):
+
+        keyb = types.InlineKeyboardMarkup()
+        verify_btn = types.InlineKeyboardButton(text="Подтвердить", callback_data="verify_add")
+        decline_btn = types.InlineKeyboardButton(text="Отменить", callback_data="decline_add")
+        keyb.add(verify_btn, decline_btn)
+        if message.from_user.id in ADMINS:
+            await message.answer(f"Вы хотите добавить <b>{message.text.replace('/add ', '')}</b>", reply_markup=keyb)
+    
+    elif message.text.startswith('/del'):
+        keyb = types.InlineKeyboardMarkup()
+        verify_btn = types.InlineKeyboardButton(text="Подтвердить", callback_data="verify_del")
+        decline_btn = types.InlineKeyboardButton(text="Отменить", callback_data="decline_del")
+        keyb.add(verify_btn, decline_btn)
+        if message.from_user.id in ADMINS:
+            await message.answer(f"Вы хотите удалить <b>{message.text.replace('/del ', '')}</b>", reply_markup=keyb)
+
+
+@dp.callback_query_handler(lambda call: call.data in ("verify_add","decline_add","verify_del","decline_del"))
+async def decline_or_verify_adding_date(call: types.CallbackQuery):
+    if call.data == "verify_add":
+        Database().add_new_date_for_game(call.message.text.replace("Вы хотите добавить ", ''))
+        await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        await call.message.answer("Дата успешно добавлена")
+    elif call.data == "decline_add":
+        await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+
+    elif call.data == "verify_del":
+        result = Database().delete_date(call.message.text.replace("Вы хотите удалить ", ''))
+        if result:
+            await call.message.answer("Дата успешно удалена!")
+        elif not result:
+            await call.message.answer(f"Такой даты нету")
+    
+    elif call.data == "decline_del":
+        await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
 @dp.message_handler(lambda message: message.text == "💬Правила игры")
 async def view_rules(message: types.Message):
@@ -46,7 +140,7 @@ async def view_games(message: types.Message):
 
 
 
-@dp.callback_query_handler(lambda call: call.data[0] not in ("✅", "🔄", "d"))
+@dp.callback_query_handler(lambda call: call.data[0] not in ("✅", "🔄", "d")and call.data not in ("verify_add","decline_add","verify_add","decline_add"))
 async def select_date(call: types.CallbackQuery):
     dates = Database().get_tables()
     if call.data in dates and call.data[-4:] != "[10]":
@@ -100,6 +194,15 @@ async def view_user_game(call: types.CallbackQuery):
                                 f"{users}\n"
                                 f"➖➖➖➖➖➖➖➖➖➖➖➖➖➖\n\n")
 
+
+
+@dp.message_handler(commands = 'get')
+async def get_game_info(message: types.Message):
+    if message.from_user.id in ADMINS:
+        Database().get_all_users_info()
+    
+    with open('./output.csv', 'rb') as users:
+        await message.answer_document(users)
 
 
 @dp.callback_query_handler(lambda call: call.data[0:4] == "dec_")
