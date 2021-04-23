@@ -117,7 +117,7 @@ async def decline_or_verify_adding_date(call: types.CallbackQuery):
 
 @dp.message_handler(lambda message: message.text == "💬Правила игры")
 async def view_rules(message: types.Message):
-    await message.answer("Здесь либо текст с правилами либо ссылка на статью telega.ph")
+    await message.answer("https://telegra.ph/Pravila-igry-04-23")
 
 @dp.message_handler(lambda message: message.text == "📆Даты игр")
 async def view_dates(message: types.Message):
