@@ -58,7 +58,7 @@ async def decline_or_verify_malling(call: types.CallbackQuery):
         for item in Database().get_all_users_id():
             try:
                 await bot.send_message(item, text)
-            except exceptions:
+            except exceptions.ChatNotFound:
                 pass
     elif call.data == "decline_malling":
         await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
