@@ -53,8 +53,13 @@ async def decline_or_verify_malling(call: types.CallbackQuery):
 
     if call.data == "verify_malling":
         text = call.message.text.replace("Вы хотите отправить всем ", "")
+        
+            
         for item in Database().get_all_users_id():
-            await bot.send_message(item, text)
+            try:
+                await bot.send_message(item, text)
+            except exceptions:
+                pass
     elif call.data == "decline_malling":
         await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
